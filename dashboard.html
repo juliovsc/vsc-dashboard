@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GasOps Command Center</title>
+    
+    <!-- 1. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- 3. React & ReactDOM (UMD - Global) -->
+    <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    
+    <!-- 4. Recharts (UMD - Global) -->
+    <script src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
+    
+    <!-- 5. Babel (for JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              slate: {
+                850: '#151f32',
+                950: '#020617',
+              },
+              neon: {
+                blue: '#00f3ff',
+                green: '#00ff9d',
+                purple: '#b026ff',
+                pink: '#ff00d4',
+              }
+            },
+            animation: {
+              'ticker': 'ticker 30s linear infinite',
+            },
+            keyframes: {
+              ticker: {
+                '0%': { transform: 'translateX(100%)' },
+                '100%': { transform: 'translateX(-100%)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- Global Styles -->
+    <style>
+      body {
+        background-color: #020617;
+        color: #f8fafc;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569; 
+      }
+      .animate-ticker {
+        animation: ticker 30s linear infinite;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #334155;
+        border-radius: 3px;
+      }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- MAIN APPLICATION SCRIPT -->
+    <!-- Added data-presets="react" to ensure JSX is compiled correctly -->
+    <script type="text/babel" data-presets="react">
+        // --- 1. GLOBAL DESTRUCTURING ---
+        // Access global variables provided by UMD scripts
+        const { useState, useEffect, useMemo } = React;
+        const { createRoot } = ReactDOM;
+        const { 
+            AreaChart, Area, ResponsiveContainer, YAxis, 
+            ComposedChart, Bar, Line, XAxis, CartesianGrid, Tooltip, Legend,
+            PieChart, Pie, Cell 
+        } = Recharts;
+
+        // --- 2. ICON SYSTEM (Inlined) ---
+        const createIcon = (path) => ({ size = 24, className = "", ...props }) => (
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width={size} 
+                height={size} 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className={className} 
+                {...props}
+            >
+                <path d={path} />
+            </svg>
+        );
+
+        const Icons = {
+            Flame: createIcon("M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3a1 1 0 0 1 1.4.2"),
+            Bell: createIcon("M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"),
+            Upload: createIcon("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"),
+            DollarSign: createIcon("M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"),
+            Activity: createIcon("M22 12h-4l-3 9L9 3l-3 9H2"),
+            Shield: createIcon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"),
+            Truck: createIcon("M1 3h15v13H1zM16 8h4l3 3v5h-7V8zM5.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3M18.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"),
+            Calendar: createIcon("M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM16 2v4M8 2v4M3 10h18"),
+            MapPin: createIcon("M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 10a3 3 0 0 0 0-6 3 3 0 0 0 0 6"),
+            AlertCircle: createIcon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"),
+            Trophy: createIcon("M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M2 17h20M8 21h8M12 17v4M15 9V5a3 3 0 0 0-3-3h0a3 3 0 0 0-3 3v4"),
+            Medal: createIcon("M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16"),
+            Award: createIcon("M12 15l-2 5l-2-5l-5-2l5-2l2-5l2 5l5 2z"),
+            Wrench: createIcon("M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"),
+            Sparkles: createIcon("M9.75 9.75c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5-2.5-1.12-2.5-2.5z M2 12l5-2l-5-2z M22 12l-5 2l5 2z"),
+            RefreshCcw: createIcon("M3 2v6h6M21 12A9 9 0 0 0 6 5.3L3 8M21 22v-6h-6M3 12a9 9 0 0 0 15 6.7l3-2.7"),
+            ShieldCheck: createIcon("M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4"),
+            TrendingUp: createIcon("M23 6l-9.5 9.5-5-5L1 18"),
+            Megaphone: createIcon("M3 11l18-5v12l-18-5z"),
+            X: createIcon("M18 6L6 18M6 6l12 12"),
+            FileSpreadsheet: createIcon("M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z M14 2v6h6 M8 13h2 M8 17h2 M14 13h2 M14 17h2"),
+            Download: createIcon("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"),
+            ChevronRight: createIcon("M9 18l6-6-6-6")
+        };
+
+        // --- 3. DATA & CONSTANTS ---
+        const ProductLine = {
+            ALL: 'All Products',
+            NITROGEN: 'Nitrogen',
+            CO2: 'CO2',
+            DRY_ICE: 'Dry Ice',
+            HELIUM: 'Helium'
+        };
+
+        const getWeeksDates = (weeks) => {
+            const dates = [];
+            const today = new Date();
+            for (let i = 0; i < weeks; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - (weeks - i) * 7);
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            return dates;
+        };
+
+        const generateMockData = () => {
+            const dates = getWeeksDates(12);
+            const financials = dates.map((date, index) => {
+                const growthFactor = 1 + (index * 0.02); 
+                const seasonalFactor = Math.sin(index) * 5000;
+                return {
+                    date,
+                    productLine: ProductLine.ALL,
+                    salesYTD: 120000 + (index * 15000) + seasonalFactor,
+                    lastYearSalesYTD: 110000 + (index * 13000),
+                    goalYTD: 125000 + (index * 15500),
+                    dryIceTons: 450 + (index * 12)
+                };
+            });
+
+            const drivers = [
+                { id: '1', name: 'Marcus Chen', safetyScore: 98, stopsCompleted: 42, fuelEfficiency: 14.5 },
+                { id: '2', name: 'Sarah Miller', safetyScore: 97, stopsCompleted: 38, fuelEfficiency: 13.8 },
+                { id: '3', name: 'James Wilson', safetyScore: 96, stopsCompleted: 45, fuelEfficiency: 12.9 },
+                { id: '4', name: 'Elena Rodriguez', safetyScore: 94, stopsCompleted: 40, fuelEfficiency: 14.1 },
+                { id: '5', name: 'David Kim', safetyScore: 91, stopsCompleted: 35, fuelEfficiency: 11.5 },
+            ];
+
+            const fleetStatus = [
+                { type: 'Tanker', operational: 12, scheduledMaintenance: 2, unscheduledMaintenance: 0 },
+                { type: 'Box Truck', operational: 24, scheduledMaintenance: 3, unscheduledMaintenance: 1 },
+                { type: 'Sprinter', operational: 18, scheduledMaintenance: 1, unscheduledMaintenance: 1 },
+            ];
+
+            const kpiTrends = {
+                sales: financials.slice(-4).map(f => f.salesYTD),
+                safety: [92, 93, 94, 95],
+                dryIce: financials.slice(-4).map(f => f.dryIceTons),
+                goalProgress: financials.slice(-4).map(f => (f.salesYTD / f.goalYTD) * 100)
+            };
+
+            return { financials, drivers, fleetStatus, kpiTrends };
+        };
+
+        const MOCK_DATA = generateMockData();
+
+        // --- 4. SERVICES ---
+        const generateDashboardInsights = async (data) => {
+            // Mocking Gemini response to avoid import errors in standalone file
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            return {
+                summary: "Sales are trending 12% above quarterly projections with optimal fleet uptime.",
+                safetyTip: "Review wet-weather braking protocols with the Northeast team.",
+                trendAlert: "Nitrogen demand has spiked in Sector 4."
+            };
+        };
+
+        // --- 5. COMPONENTS ---
+
+        const KPICard = ({ title, value, subValue, trend, icon: Icon, color, chartColor }) => {
+            const data = trend.map((val, i) => ({ i, val }));
+            return (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 relative overflow-hidden backdrop-blur-sm hover:border-slate-600 transition-colors group">
+                    <div className="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{title}</h3>
+                            <div className="mt-1 flex items-baseline gap-2">
+                                <span className={`text-2xl font-bold text-white font-mono`}>{value}</span>
+                                {subValue && <span className={`text-xs font-medium ${color}`}>{subValue}</span>}
+                            </div>
+                        </div>
+                        <div className={`p-2 rounded-lg bg-slate-800 ${color} group-hover:bg-slate-700 transition-colors`}>
+                            <Icon size={20} />
+                        </div>
+                    </div>
+                    <div className="h-12 w-full mt-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={data}>
+                                <defs>
+                                    <linearGradient id={`gradient-${title.replace(/\s/g,'')}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={chartColor} stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor={chartColor} stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <YAxis hide domain={['dataMin - 10', 'dataMax + 10']} />
+                                <Area type="monotone" dataKey="val" stroke={chartColor} strokeWidth={2} fillOpacity={1} fill={`url(#gradient-${title.replace(/\s/g,'')})`} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            );
+        };
+
+        const MainChart = ({ data }) => {
+            const [filter, setFilter] = useState('All Products');
+            const [dateRange, setDateRange] = useState('ALL');
+
+            const filteredData = useMemo(() => {
+                let sliced = [...data];
+                if (dateRange === '1M') sliced = data.slice(-4);
+                else if (dateRange === '2M') sliced = data.slice(-8);
+                return sliced;
+            }, [data, dateRange]);
+
+            const formatCurrency = (value) => 
+                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact", maximumFractionDigits: 1 }).format(value);
+
+            const CustomTooltip = ({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                    return (
+                        <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl">
+                            <p className="text-slate-300 font-mono text-sm mb-2">{label}</p>
+                            {payload.map((entry, index) => (
+                                <div key={index} className="flex items-center gap-2 text-xs mb-1">
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></span>
+                                    <span className="text-slate-400">{entry.name}:</span>
+                                    <span className="text-white font-bold">{formatCurrency(entry.value)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                }
+                return null;
+            };
+
+            return (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 h-full flex flex-col backdrop-blur-sm">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <span className="w-1 h-6 bg-neon-blue rounded-full"></span>
+                            Financial Performance
+                        </h2>
+                        <div className="flex flex-wrap gap-4">
+                            <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+                                <div className="px-2 text-slate-500"><Icons.Calendar size={14} /></div>
+                                {['1M', '2M', 'ALL'].map((range) => (
+                                    <button key={range} onClick={() => setDateRange(range)} className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${dateRange === range ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                                        {range === 'ALL' ? 'YTD' : range}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex gap-2">
+                                {Object.values(ProductLine).map((line) => (
+                                    <button key={line} onClick={() => setFilter(line)} className={`px-3 py-1 text-xs rounded-full border transition-all ${filter === line ? 'bg-neon-blue/10 border-neon-blue text-neon-blue shadow-[0_0_10px_rgba(0,243,255,0.2)]' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                                        {line === 'All Products' ? 'Overview' : line}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1 min-h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={filteredData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} vertical={false} />
+                                <XAxis dataKey="date" stroke="#94a3b8" tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(val) => val.split('-').slice(1).join('/')} axisLine={false} tickLine={false} />
+                                <YAxis stroke="#94a3b8" tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={formatCurrency} axisLine={false} tickLine={false} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e293b', opacity: 0.4 }} />
+                                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                <Bar dataKey="lastYearSalesYTD" name="Prior Year YTD" fill="#475569" barSize={20} radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="salesYTD" name="Current YTD" fill="#00f3ff" barSize={20} radius={[4, 4, 0, 0]} />
+                                <Line type="monotone" dataKey="goalYTD" name="Goal" stroke="#00ff9d" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            );
+        };
+
+        const RouteMap = () => (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 h-full flex flex-col backdrop-blur-sm relative overflow-hidden">
+                <div className="flex justify-between items-center mb-4 z-10 relative">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <span className="w-1 h-6 bg-neon-purple rounded-full"></span>
+                        Live Route Status
+                    </h2>
+                    <div className="flex gap-2 text-xs">
+                        <span className="flex items-center gap-1 text-slate-400"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> On Time</span>
+                        <span className="flex items-center gap-1 text-slate-400"><span className="w-2 h-2 rounded-full bg-red-500"></span> Delayed</span>
+                    </div>
+                </div>
+                <div className="flex-1 relative bg-slate-900 rounded-lg border border-slate-800 overflow-hidden group">
+                    <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px)', backgroundSize: '20px 20px', opacity: 0.2 }}></div>
+                    <svg className="absolute inset-0 w-full h-full p-4" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <path d="M10,10 Q50,5 80,40 T90,90" fill="none" stroke="#10b981" strokeWidth="0.5" strokeDasharray="2 2" className="animate-pulse" />
+                        <path d="M20,80 Q40,50 60,60 T90,20" fill="none" stroke="#ef4444" strokeWidth="0.5" />
+                        <path d="M10,50 L50,50 L80,80" fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeOpacity="0.5" />
+                        <circle cx="10" cy="10" r="2" fill="#10b981" />
+                        <circle cx="80" cy="40" r="1.5" fill="#10b981" />
+                        <circle cx="90" cy="90" r="2" fill="#10b981" />
+                        <circle cx="20" cy="80" r="2" fill="#ef4444" />
+                        <circle cx="60" cy="60" r="1.5" fill="#ef4444" />
+                        <circle cx="90" cy="20" r="2" fill="#10b981" />
+                    </svg>
+                    <div className="absolute top-2 right-2 bg-slate-900/90 p-2 rounded border border-slate-700 text-xs">
+                        <div className="flex items-center gap-2 mb-1"><Icons.MapPin size={12} className="text-emerald-500" /><span className="text-emerald-500">Route 104: Complete</span></div>
+                        <div className="flex items-center gap-2"><Icons.AlertCircle size={12} className="text-red-500" /><span className="text-red-500">Route 202: Traffic Delay</span></div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const DriverLeaderboard = ({ drivers }) => {
+            const topDrivers = drivers.slice(0, 3);
+            const getRankIcon = (index) => {
+                if(index === 0) return <Icons.Trophy className="text-yellow-400" size={16} />;
+                if(index === 1) return <Icons.Medal className="text-slate-300" size={16} />;
+                if(index === 2) return <Icons.Award className="text-amber-600" size={16} />;
+                return null;
+            };
+            return (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 backdrop-blur-sm">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+                        <span className="w-1 h-6 bg-neon-green rounded-full"></span>
+                        Safety Leaderboard
+                    </h2>
+                    <div className="space-y-3">
+                        {topDrivers.map((driver, index) => (
+                            <div key={driver.id} className="flex items-center bg-slate-900/50 p-3 rounded-lg border border-slate-800 hover:border-slate-600 transition-all">
+                                <div className="w-8 h-8 flex items-center justify-center bg-slate-800 rounded-full mr-3 font-bold text-slate-500 border border-slate-700 shadow-inner">{getRankIcon(index)}</div>
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-white">{driver.name}</p>
+                                    <p className="text-xs text-slate-500">{driver.stopsCompleted} stops this week</p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="block text-lg font-mono font-bold text-neon-green">{driver.safetyScore}</span>
+                                    <span className="text-[10px] uppercase text-slate-500">Score</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const FleetHealth = ({ fleet }) => {
+            const data = [
+                { name: 'Operational', value: fleet.reduce((acc, curr) => acc + curr.operational, 0), color: '#10b981' },
+                { name: 'Scheduled Maint', value: fleet.reduce((acc, curr) => acc + curr.scheduledMaintenance, 0), color: '#3b82f6' },
+                { name: 'Unscheduled', value: fleet.reduce((acc, curr) => acc + curr.unscheduledMaintenance, 0), color: '#ef4444' },
+            ];
+            return (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 backdrop-blur-sm flex flex-col">
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-2">
+                        <span className="w-1 h-6 bg-orange-500 rounded-full"></span>
+                        Fleet Health
+                    </h2>
+                    <div className="flex-1 flex items-center gap-4">
+                        <div className="h-40 w-40 relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={data} innerRadius={35} outerRadius={50} paddingAngle={5} dataKey="value" stroke="none">
+                                        {data.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', fontSize: '12px' }} itemStyle={{ color: '#e2e8f0' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Icons.Wrench size={16} className="text-slate-500" /></div>
+                        </div>
+                        <div className="flex-1 space-y-3">
+                            {data.map((item) => (
+                                <div key={item.name} className="flex justify-between items-center text-sm">
+                                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></span><span className="text-slate-400">{item.name}</span></div>
+                                    <span className="font-mono font-bold text-white">{item.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AIInsights = ({ data }) => {
+            const [insight, setInsight] = useState(null);
+            const [loading, setLoading] = useState(false);
+
+            const fetchInsights = async () => {
+                setLoading(true);
+                const result = await generateDashboardInsights(data);
+                setInsight(result);
+                setLoading(false);
+            };
+
+            useEffect(() => { fetchInsights(); }, []);
+
+            return (
+                <div className="bg-gradient-to-br from-indigo-900/40 to-slate-800/50 border border-indigo-500/30 rounded-xl p-4 backdrop-blur-sm relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-3">
+                        <h2 className="text-sm font-bold text-indigo-300 flex items-center gap-2 uppercase tracking-wide"><Icons.Sparkles size={16} />AI Analyst</h2>
+                        <button onClick={fetchInsights} disabled={loading} className={`p-1 rounded hover:bg-white/10 text-indigo-300 transition-all ${loading ? 'animate-spin' : ''}`}><Icons.RefreshCcw size={14} /></button>
+                    </div>
+                    {loading ? (
+                        <div className="space-y-2 animate-pulse"><div className="h-4 bg-indigo-500/20 rounded w-3/4"></div><div className="h-4 bg-indigo-500/20 rounded w-1/2"></div></div>
+                    ) : insight ? (
+                        <div className="space-y-4">
+                            <div className="p-3 bg-indigo-950/50 rounded-lg border border-indigo-500/20"><p className="text-sm text-indigo-100 leading-relaxed font-light">"{insight.summary}"</p></div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="flex items-start gap-2 p-2 rounded bg-slate-900/50 border border-slate-800">
+                                    <Icons.ShieldCheck size={16} className="text-emerald-400 mt-0.5 shrink-0" />
+                                    <div><span className="text-[10px] uppercase text-slate-500 block font-bold">Safety Tip</span><p className="text-xs text-slate-300">{insight.safetyTip}</p></div>
+                                </div>
+                                <div className="flex items-start gap-2 p-2 rounded bg-slate-900/50 border border-slate-800">
+                                    <Icons.TrendingUp size={16} className="text-amber-400 mt-0.5 shrink-0" />
+                                    <div><span className="text-[10px] uppercase text-slate-500 block font-bold">Trend</span><p className="text-xs text-slate-300">{insight.trendAlert}</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-slate-500">Insights unavailable. Check connection.</p>
+                    )}
+                </div>
+            );
+        };
+
+        const Header = ({ onUploadClick }) => (
+            <header className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20"><Icons.Flame className="text-white" size={24} fill="white" /></div>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-white">GasOps <span className="text-slate-500 font-light">Prime</span></h1>
+                        <p className="text-xs text-slate-400 uppercase tracking-widest">Distribution Command Center</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800 rounded-full border border-slate-700 text-xs text-slate-400"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>System Online</div>
+                    <button className="p-2 text-slate-400 hover:text-white transition-colors relative"><Icons.Bell size={20} /><span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-slate-950"></span></button>
+                    <button onClick={onUploadClick} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-lg hover:border-slate-500"><Icons.Upload size={16} /><span>Upload CSV</span></button>
+                </div>
+            </header>
+        );
+
+        const NewsTicker = () => (
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 h-10 flex items-center z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
+                <div className="bg-slate-900 h-full px-4 flex items-center gap-2 border-r border-slate-800 z-10 relative">
+                    <div className="absolute inset-0 bg-neon-blue/5"></div>
+                    <Icons.Megaphone size={16} className="text-neon-blue relative z-10" />
+                    <span className="text-xs font-bold text-neon-blue uppercase tracking-wider whitespace-nowrap relative z-10">HQ Live</span>
+                </div>
+                <div className="flex-1 overflow-hidden relative flex items-center h-full bg-slate-950/50">
+                    <div className="animate-ticker whitespace-nowrap flex gap-12 text-sm text-slate-300 items-center">
+                        <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neon-green"></span>Quarterly nitrogen sales goals exceeded by 12%.</span><span className="text-slate-600">///</span>
+                        <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>Winter Storm Alert: Northeast routes seeing 45min delays.</span><span className="text-slate-600">///</span>
+                        <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neon-purple"></span>Congrats to Marcus Chen: Driver of the Month (Score 98).</span><span className="text-slate-600">///</span>
+                        <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Fleet maintenance window scheduled for Nov 15th (2AM - 5AM).</span><span className="text-slate-600">///</span>
+                        <span className="inline-flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-neon-pink"></span>New Dry Ice safety protocols effective immediately.</span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const DataSpecsModal = ({ isOpen, onClose }) => {
+            const [activeTab, setActiveTab] = useState('financial');
+            if (!isOpen) return null;
+            
+            const renderTable = (headers, sample) => (
+                <div className="overflow-x-auto rounded-lg border border-slate-700 mt-4">
+                    <table className="w-full text-left text-xs text-slate-400">
+                        <thead className="bg-slate-900 uppercase font-bold text-slate-300"><tr>{headers.map((h, i) => <th key={i} className="px-4 py-3">{h}</th>)}</tr></thead>
+                        <tbody className="divide-y divide-slate-800 bg-slate-800/50">
+                            <tr>{sample.map((s, i) => <td key={i} className="px-4 py-3 font-mono text-slate-200">{s}</td>)}</tr>
+                            <tr>{sample.map((_, i) => <td key={i} className="px-4 py-3 font-mono text-slate-600">...</td>)}</tr>
+                        </tbody>
+                    </table>
+                </div>
+            );
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose}></div>
+                    <div className="relative bg-slate-900 border border-slate-700 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                            <div><h2 className="text-xl font-bold text-white flex items-center gap-2"><Icons.FileSpreadsheet className="text-neon-blue" size={24} />Data Import Specifications</h2><p className="text-sm text-slate-400 mt-1">Upload weekly CSV/Excel files matching these schemas.</p></div>
+                            <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"><Icons.X size={20} /></button>
+                        </div>
+                        <div className="flex border-b border-slate-800 bg-slate-950/50">
+                            {['financial', 'logistics', 'fleet'].map((tab) => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-4 text-sm font-medium border-b-2 transition-colors capitalize ${activeTab === tab ? 'border-neon-blue text-white bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}>{tab} Data</button>
+                            ))}
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar">
+                            {activeTab === 'financial' && (<div><div className="flex justify-between items-center mb-2"><h3 className="text-lg font-semibold text-white">Financials.csv</h3><span className="text-xs text-neon-green bg-neon-green/10 px-2 py-1 rounded border border-neon-green/20">Updated Weekly</span></div><p className="text-sm text-slate-400 mb-4">Primary source for sales trends, goal tracking, and sparklines.</p>{renderTable(['Date (YYYY-MM-DD)', 'Product_Line', 'Sales_YTD', 'Goal_YTD', 'Last_Year_YTD', 'Dry_Ice_Tons'],['2023-11-01', 'Nitrogen', '145000', '140000', '125000', '45'])}</div>)}
+                            {activeTab === 'logistics' && (<div><div className="flex justify-between items-center mb-2"><h3 className="text-lg font-semibold text-white">Logistics_Safety.csv</h3><span className="text-xs text-neon-blue bg-neon-blue/10 px-2 py-1 rounded border border-neon-blue/20">From Samsara/TIMS</span></div><p className="text-sm text-slate-400 mb-4">Driver performance metrics, safety scores, and efficiency ratings.</p>{renderTable(['Date', 'Driver_ID', 'Driver_Name', 'Safety_Score', 'Stops_Count', 'MPG_Rating'],['2023-11-01', 'DRV-001', 'Marcus Chen', '98', '42', '14.5'])}</div>)}
+                            {activeTab === 'fleet' && (<div><div className="flex justify-between items-center mb-2"><h3 className="text-lg font-semibold text-white">Fleet_Status.csv</h3><span className="text-xs text-neon-purple bg-neon-purple/10 px-2 py-1 rounded border border-neon-purple/20">Maintenance Logs</span></div><p className="text-sm text-slate-400 mb-4">Snapshot of current vehicle availability and maintenance needs.</p>{renderTable(['Vehicle_Type', 'Operational_Count', 'Scheduled_Maint', 'Unscheduled_Maint'],['Box Truck', '24', '3', '1'])}</div>)}
+                        </div>
+                        <div className="p-6 border-t border-slate-800 bg-slate-900 flex justify-between items-center">
+                            <button className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"><Icons.Download size={16} />Download {activeTab} template</button>
+                            <button className="flex items-center gap-2 bg-neon-blue hover:bg-cyan-400 text-black px-6 py-2 rounded-lg text-sm font-bold transition-all shadow-[0_0_15px_rgba(0,243,255,0.3)]">Select File<Icons.ChevronRight size={16} /></button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+            const currentFinance = MOCK_DATA.financials[MOCK_DATA.financials.length - 1];
+            const goalPercent = (currentFinance.salesYTD / currentFinance.goalYTD) * 100;
+            const avgSafety = MOCK_DATA.drivers.reduce((acc, d) => acc + d.safetyScore, 0) / MOCK_DATA.drivers.length;
+
+            return (
+                <div className="min-h-screen bg-slate-950 font-sans selection:bg-neon-blue selection:text-black pb-12">
+                    <div className="p-4 md:p-8 max-w-[1600px] mx-auto">
+                        <Header onUploadClick={() => setIsUploadModalOpen(true)} />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <KPICard title="YTD Sales" value={`$${(currentFinance.salesYTD / 1000).toFixed(1)}k`} subValue="+12%" trend={MOCK_DATA.kpiTrends.sales} icon={Icons.DollarSign} color="text-neon-blue" chartColor="#00f3ff" />
+                            <KPICard title="Goal Progress" value={`${goalPercent.toFixed(1)}%`} subValue="On Track" trend={MOCK_DATA.kpiTrends.goalProgress} icon={Icons.Activity} color="text-neon-green" chartColor="#00ff9d" />
+                            <KPICard title="Avg Safety Score" value={avgSafety.toFixed(0)} trend={MOCK_DATA.kpiTrends.safety} icon={Icons.Shield} color="text-neon-purple" chartColor="#b026ff" />
+                            <KPICard title="Dry Ice Tons" value={`${currentFinance.dryIceTons}`} trend={MOCK_DATA.kpiTrends.dryIce} icon={Icons.Truck} color="text-neon-pink" chartColor="#ff00d4" />
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6 h-[500px]">
+                            <div className="lg:col-span-8 h-full"><MainChart data={MOCK_DATA.financials} /></div>
+                            <div className="lg:col-span-4 h-full"><RouteMap /></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <DriverLeaderboard drivers={MOCK_DATA.drivers} />
+                            <FleetHealth fleet={MOCK_DATA.fleetStatus} />
+                            <AIInsights data={MOCK_DATA} />
+                        </div>
+                    </div>
+                    <NewsTicker />
+                    <DataSpecsModal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} />
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
